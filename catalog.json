@@ -1,0 +1,66 @@
+{
+  "source": "Common Paper (https://github.com/CommonPaper)",
+  "license": "CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/)",
+  "templates": [
+    {
+      "name": "Mutual Non-Disclosure Agreement",
+      "description": "Standard terms for a mutual NDA allowing each party to share confidential information for a stated purpose. Covers use restrictions, exceptions, term, return of information, and governing law. Created by a committee of over 40 attorneys.",
+      "filename": "Mutual-NDA.md"
+    },
+    {
+      "name": "Mutual NDA Cover Page",
+      "description": "Cover page template to execute the Common Paper Mutual NDA. Parties fill in the purpose, effective date, MNDA term, confidentiality period, governing law, and signatures to complete the agreement.",
+      "filename": "Mutual-NDA-coverpage.md"
+    },
+    {
+      "name": "Cloud Service Agreement",
+      "description": "Comprehensive agreement for selling and buying cloud software and SaaS products. Covers subscription access, user accounts, privacy, payment, IP rights, warranties, liability caps, indemnification, and confidentiality.",
+      "filename": "CSA.md"
+    },
+    {
+      "name": "Service Level Agreement",
+      "description": "Supplement to the Common Paper CSA defining uptime targets, response time targets, service credit calculations and limitations, and termination rights when targets are repeatedly missed.",
+      "filename": "sla.md"
+    },
+    {
+      "name": "Design Partner Agreement",
+      "description": "Agreement for early product access in exchange for structured feedback. Covers the feedback program, IP ownership (provider owns all feedback), confidentiality, product improvement rights, and term and termination.",
+      "filename": "design-partner-agreement.md"
+    },
+    {
+      "name": "Professional Services Agreement",
+      "description": "Governs the provision of professional services including deliverables, IP assignment, subcontractors, payment, confidentiality, indemnification, and insurance. Structured around a framework with individual Statements of Work.",
+      "filename": "psa.md"
+    },
+    {
+      "name": "Data Processing Agreement",
+      "description": "GDPR-compliant agreement governing the processing of personal data by a service provider on behalf of a customer. Covers processor/subprocessor relationships, restricted transfers (EEA SCCs, UK Addendum), security incident response, and audit rights.",
+      "filename": "DPA.md"
+    },
+    {
+      "name": "Partnership Agreement",
+      "description": "Standard agreement for business partnerships covering mutual obligations, trademark licensing, payment terms, escalation procedures, confidentiality, indemnification, and liability limitations.",
+      "filename": "Partnership-Agreement.md"
+    },
+    {
+      "name": "Software License Agreement",
+      "description": "Governs on-premise or locally installed software licensing. Covers license grant, usage restrictions, open source software, updates, payment, warranties, liability caps, indemnification, and confidentiality.",
+      "filename": "Software-License-Agreement.md"
+    },
+    {
+      "name": "Pilot Agreement",
+      "description": "Short-term evaluation agreement allowing a prospective customer to test a product before committing to a full commercial contract. Covers pilot access, usage restrictions, liability caps, confidentiality, and termination.",
+      "filename": "Pilot-Agreement.md"
+    },
+    {
+      "name": "Business Associate Agreement",
+      "description": "HIPAA-compliant agreement governing the handling of Protected Health Information (PHI) by a service provider on behalf of a covered entity. Covers safeguards, subcontractor requirements, breach notification, and individual rights.",
+      "filename": "BAA.md"
+    },
+    {
+      "name": "AI Addendum",
+      "description": "Addendum to supplement existing agreements with AI-specific terms covering AI service usage, model training restrictions, output ownership (assigned to customer), personal data obligations, and disclaimers about AI-generated content.",
+      "filename": "AI-Addendum.md"
+    }
+  ]
+}
