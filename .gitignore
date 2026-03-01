@@ -1,0 +1,26 @@
+# Python
+**/__pycache__/
+*.pyc
+*.pyo
+.venv/
+.pytest_cache/
+
+# SQLite databases
+*.db
+
+# Environment variables
+.env
+.env.*
+
+# Node.js
+frontend/node_modules/
+
+# macOS
+.DS_Store
+
+# Docker build artifacts (generated, not committed)
+backend/static/
+backend/data/
+
+# Frontend build output
+frontend/out/
