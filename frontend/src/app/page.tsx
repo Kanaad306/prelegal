@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface NdaValues {
   purpose: string;
@@ -39,6 +39,19 @@ const defaultValues: NdaValues = {
   party2Title: "",
   party2Address: "",
 };
+
+interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+const GREETING: ChatMessage = {
+  role: "assistant",
+  content:
+    "Hi! I'm your legal assistant. I'll help you fill out a Mutual NDA by asking a few questions.\n\nLet's start — what's the purpose of this NDA? For example, is it for evaluating a potential business partnership, sharing technical information, or something else?",
+};
+
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
 
 /** Renders a form value inline: blue if filled, grey placeholder if empty. */
 function F({ v, label }: { v: string; label: string }) {
@@ -421,18 +434,79 @@ function NdaPreview({ v }: { v: NdaValues }) {
 
 export default function Page() {
   const [values, setValues] = useState<NdaValues>(defaultValues);
+  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const [input, setInput] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [draftId, setDraftId] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  function set(field: keyof NdaValues) {
-    return (
-      e: React.ChangeEvent<
-        HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-      >
-    ) => setValues((prev) => ({ ...prev, [field]: e.target.value }));
+  // Scroll to the latest message whenever messages change
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || isLoading) return;
+
+    const userMessage: ChatMessage = { role: "user", content: text };
+    const nextMessages = [...messages, userMessage];
+    setMessages(nextMessages);
+    setInput("");
+    setIsLoading(true);
+    setError(null);
+
+    // History sent to the backend excludes the new user message (it's in body.message)
+    const history = messages.map((m) => ({ role: m.role, content: m.content }));
+
+    try {
+      const res = await fetch(`${API_BASE}/api/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: text,
+          history,
+          current_fields: values,
+          draft_id: draftId,
+        }),
+      });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.detail ?? `Server error ${res.status}`);
+      }
+
+      const data = await res.json();
+      const aiMessage: string = data.message ?? "Done — check the document preview.";
+      setMessages([...nextMessages, { role: "assistant", content: aiMessage }]);
+      // Merge returned fields over current state so partial responses never wipe
+      // fields the AI has not addressed in this turn.
+      if (data.updated_fields) {
+        setValues((prev) => ({ ...prev, ...(data.updated_fields as Partial<NdaValues>) }));
+      }
+      if (data.draft_id != null) setDraftId(data.draft_id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Something went wrong.";
+      setError(msg);
+      // Remove the optimistic user message so the user can retry
+      setMessages(messages);
+      setInput(text);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendMessage();
+    }
   }
 
   return (
     <div className="flex h-screen overflow-hidden bg-white">
-      {/* ── LEFT PANEL: FORM ── */}
+      {/* ── LEFT PANEL: AI CHAT ── */}
       <aside className="no-print w-96 flex-shrink-0 flex flex-col bg-[#f7f8fc] border-r border-gray-200 overflow-hidden">
         {/* Header */}
         <div className="bg-navy px-5 py-4 flex-shrink-0">
@@ -441,227 +515,86 @@ export default function Page() {
           </div>
           <h1 className="text-white font-bold text-base">Mutual NDA Creator</h1>
           <p className="text-gray-400 text-xs mt-0.5">
-            Fill in the fields — the document updates live.
+            Chat with the AI — the document updates live.
           </p>
         </div>
 
-        {/* Form */}
-        <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
-          {/* Basic Terms */}
-          <div className="form-section">
-            <p className="form-section-title">Basic Terms</p>
-
-            <div className="mb-3">
-              <label className="form-label">Purpose</label>
-              <textarea
-                className="form-input resize-none"
-                rows={3}
-                placeholder="e.g. Evaluating whether to enter into a business relationship"
-                value={values.purpose}
-                onChange={set("purpose")}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">Effective Date</label>
-              <input
-                type="date"
-                className="form-input"
-                value={values.effectiveDate}
-                onChange={set("effectiveDate")}
-              />
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label">MNDA Term</label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mndaTermType"
-                    value="expires"
-                    checked={values.mndaTermType === "expires"}
-                    onChange={set("mndaTermType")}
-                    className="text-brand"
-                  />
-                  Expires after
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    className="form-input w-14 px-2 py-1 text-center"
-                    value={values.mndaTermYears}
-                    onChange={set("mndaTermYears")}
-                    disabled={values.mndaTermType !== "expires"}
-                  />
-                  year(s)
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="mndaTermType"
-                    value="continues"
-                    checked={values.mndaTermType === "continues"}
-                    onChange={set("mndaTermType")}
-                    className="text-brand"
-                  />
-                  Continues until terminated
-                </label>
+        {/* Message list */}
+        <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          {messages.map((msg, i) => (
+            <div
+              key={i}
+              className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+            >
+              <div
+                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap leading-relaxed ${
+                  msg.role === "user"
+                    ? "bg-brand text-white rounded-br-sm"
+                    : "bg-white text-gray-800 border border-gray-200 rounded-bl-sm shadow-sm"
+                }`}
+              >
+                {msg.content}
               </div>
             </div>
+          ))}
 
-            <div className="mb-3">
-              <label className="form-label">Term of Confidentiality</label>
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="confidentialityType"
-                    value="years"
-                    checked={values.confidentialityType === "years"}
-                    onChange={set("confidentialityType")}
-                    className="text-brand"
-                  />
-                  <input
-                    type="number"
-                    min={1}
-                    max={10}
-                    className="form-input w-14 px-2 py-1 text-center"
-                    value={values.confidentialityYears}
-                    onChange={set("confidentialityYears")}
-                    disabled={values.confidentialityType !== "years"}
-                  />
-                  year(s) from Effective Date
-                </label>
-                <label className="flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="confidentialityType"
-                    value="perpetuity"
-                    checked={values.confidentialityType === "perpetuity"}
-                    onChange={set("confidentialityType")}
-                    className="text-brand"
-                  />
-                  In perpetuity
-                </label>
+          {isLoading && (
+            <div className="flex justify-start">
+              <div className="bg-white border border-gray-200 rounded-2xl rounded-bl-sm shadow-sm px-4 py-3">
+                <div className="flex gap-1 items-center">
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
+                  <span className="w-2 h-2 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
+                </div>
               </div>
             </div>
+          )}
 
-            <div className="mb-3">
-              <label className="form-label">Governing Law (State)</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder="e.g. Delaware"
-                value={values.governingLaw}
-                onChange={set("governingLaw")}
-              />
+          {error && (
+            <div className="text-xs text-red-500 bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+              {error}
             </div>
+          )}
 
-            <div>
-              <label className="form-label">Jurisdiction</label>
-              <input
-                type="text"
-                className="form-input"
-                placeholder='e.g. courts located in New Castle, DE'
-                value={values.jurisdiction}
-                onChange={set("jurisdiction")}
-              />
-            </div>
-          </div>
+          <div ref={bottomRef} />
+        </div>
 
-          {/* Party 1 */}
-          <div className="form-section">
-            <p className="form-section-title">Party 1</p>
-            <div className="space-y-3">
-              <div>
-                <label className="form-label">Company Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Acme Corp"
-                  value={values.party1Company}
-                  onChange={set("party1Company")}
+        {/* Input area */}
+        <div className="flex-shrink-0 px-4 py-3 border-t border-gray-200 bg-white">
+          <div className="flex gap-2 items-end">
+            <textarea
+              className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white
+                focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent
+                transition-colors placeholder-gray-400 max-h-28"
+              rows={1}
+              placeholder="Type a message… (Enter to send)"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              onKeyDown={handleKeyDown}
+              disabled={isLoading}
+            />
+            <button
+              onClick={sendMessage}
+              disabled={!input.trim() || isLoading}
+              className="flex-shrink-0 bg-purple hover:opacity-90 disabled:opacity-40 disabled:cursor-not-allowed
+                text-white rounded-xl p-2.5 transition-opacity"
+              aria-label="Send message"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+                strokeWidth={2.5}
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 19V5m0 0l-7 7m7-7l7 7"
                 />
-              </div>
-              <div>
-                <label className="form-label">Contact Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Jane Smith"
-                  value={values.party1Name}
-                  onChange={set("party1Name")}
-                />
-              </div>
-              <div>
-                <label className="form-label">Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="CEO"
-                  value={values.party1Title}
-                  onChange={set("party1Title")}
-                />
-              </div>
-              <div>
-                <label className="form-label">Notice Address</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="jane@acme.com"
-                  value={values.party1Address}
-                  onChange={set("party1Address")}
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Party 2 */}
-          <div className="form-section">
-            <p className="form-section-title">Party 2</p>
-            <div className="space-y-3">
-              <div>
-                <label className="form-label">Company Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="Beta Inc"
-                  value={values.party2Company}
-                  onChange={set("party2Company")}
-                />
-              </div>
-              <div>
-                <label className="form-label">Contact Name</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="John Doe"
-                  value={values.party2Name}
-                  onChange={set("party2Name")}
-                />
-              </div>
-              <div>
-                <label className="form-label">Title</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="CTO"
-                  value={values.party2Title}
-                  onChange={set("party2Title")}
-                />
-              </div>
-              <div>
-                <label className="form-label">Notice Address</label>
-                <input
-                  type="text"
-                  className="form-input"
-                  placeholder="john@betainc.com"
-                  value={values.party2Address}
-                  onChange={set("party2Address")}
-                />
-              </div>
-            </div>
+              </svg>
+            </button>
           </div>
         </div>
       </aside>
@@ -675,7 +608,7 @@ export default function Page() {
               Document Preview
             </span>
             <span className="ml-2 text-xs text-gray-400">
-              Updates as you type
+              Updates as you chat
             </span>
           </div>
           <button
